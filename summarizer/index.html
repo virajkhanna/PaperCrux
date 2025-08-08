@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<head>
+    <title>PaperCrux</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script type="module"> 
+        import * as pdfjs from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/+esm';
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.worker.min.mjs';
+
+        document.getElementById('summarizeform').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            console.log("Working");
+            document.getElementById("wait").style.display = "inline-block";
+
+            const file = document.getElementById('formFile').files[0];
+            if (!file || file.type !== 'application/pdf') {
+                alert('Please upload a valid PDF file.');
+                return;
+            }
+
+            const buffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+            let text = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                const pageText = content.items.map(item => item.str).join(' ');
+                text += `\n--- Page ${i} ---\n${pageText}\n`;
+            }
+
+            const formData = new URLSearchParams();
+            const wordLimit = document.getElementById("quantity").value;
+            const recaptcha = document.getElementsByName("g-recaptcha-response")[0].value;
+
+            formData.append('text', text);
+            formData.append('wordLimit', wordLimit);
+            formData.append('recaptchaReply', recaptcha);
+
+            const response = await fetch('summarise.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            const resultText = await response.text();
+            const resultObj = JSON.parse(resultText);
+
+            document.getElementById("wait").style.display = "none";
+            document.getElementById("column1").style.display = "block";
+            document.getElementById("column2").style.display = "block";
+            document.getElementById("column3").style.display = "block";
+
+            async function typeSentence(sentence, selector, delay = 10) {
+                const el = document.querySelector(selector);
+                const letters = sentence.split("");
+                let i = 0;
+                while (i < letters.length) {
+                    await waitForMs(delay);
+                    el.innerHTML += letters[i];
+                    i++;
+                }
+            }
+
+            async function typeHTMLSentence(sentence, selector, delay = 10) {
+                const el = document.querySelector(selector);
+                const lines = sentence.split('<br>');
+                for (const line of lines) {
+                    for (let i = 0; i < line.length; i++) {
+                        el.innerHTML += line[i];
+                        await waitForMs(delay);
+                    }
+                    el.innerHTML += "<br><br>";
+                }
+            }
+
+            async function deleteSentence(selector) {
+                const el = document.querySelector(selector);
+                const letters = el.textContent.split("");
+                while (letters.length > 0) {
+                    await waitForMs(100);
+                    letters.pop();
+                    el.textContent = letters.join("");
+                }
+            }
+
+            function waitForMs(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            await Promise.all([
+                typeHTMLSentence(resultObj.main, "#summary"),
+                typeHTMLSentence(resultObj.claims, "#claims"),
+                typeHTMLSentence(resultObj.proof, "#proofs")
+            ]);
+            
+            let i = 0;
+            const speed = 2;
+
+            function typeWriter(txt) {
+                if (!txt || typeof txt !== 'string') {
+                    console.error("typeWriter: invalid input", txt);
+                    return;
+                }
+
+                if (i < txt.length) {
+                    document.getElementById("speechInput").textContent += txt.charAt(i);
+                    i++;
+                    setTimeout(() => typeWriter(txt), speed);
+                }
+            }
+
+        });
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+    <script src="../script.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-sm bg-light navbar-light">
+        <div class="container-fluid">
+            <div class="title navbar-title">
+                <div>
+                    <a class="navbar-brand" href="../">
+                        <span class="continue-title feature-text" style="font-size: 1.5rem !important;">PaperCrux</span>
+                    </a>
+                </div>
+                <span class="aurora-layers">
+                    <span class="aurora-navbar aurora-1"></span>
+                    <span class="aurora-navbar aurora-2"></span>
+                    <span class="aurora-navbar aurora-3"></span>
+                    <span class="aurora-navbar aurora-4"></span>
+                </span>
+            </div>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="links-navbar navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="./">Summarizer</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <br>
+    <div>
+        <form id="summarizeform">
+            <div class="mb-3" style="width: 40%; margin-left: 30px;">
+                <label for="formFile" class="form-label" style="font-size: 1.2rem;">Upload a research paper here: (<a href="sample.pdf" style="text-decoration: none;">Sample</a>)</label>
+                <input class="form-control" type="file" id="formFile" accept="application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                <br>
+                <label for="formFile" class="form-label" style="font-size: 1.2rem;">Enter a word limit for the summary here: </label>
+                <input type="number" class="form-control" id="quantity" name="quantity" min="100" max="500">
+                <br>
+                <div class="g-recaptcha" data-sitekey="ADD_RECAPTCHA_SITE_KEY_HERE"></div>
+                <br>
+                <input type="submit" id="submitform" class="btn btn-dark button-try-it" value="Summarise!"></button>
+            </div>
+        </form>
+        <center>
+            <h3 style="font-family: 'Georgia';" id="wait" class="wait">Please wait while the summary is generated...</h3>
+        </center>
+        <div class="row1">
+            <div class="column1" id="column1">
+                <h4 class="subheading1" id="summary1">A summary of the paper</h5>
+                <br>
+                <p id="summary"></p>
+            </div>
+            <div class="column1" id="column2">
+                <h4 class="subheading1" id="claims1">Key claims made in the paper</h5>
+                <br>
+                <p id="claims"></p>
+            </div>
+            <div class="column1" id="column3">
+                <h4 class="subheading1" id="proofs1">Proofs</h5>
+                <br>
+                <p id="proofs"></p>
+            </div>
+        </div>
+    </div>
+    <p style="color: black; font-size: 10px; font-family: 'Georgia'; margin-left: 15px; margin-right: 15px; text-align: center; justify-content: center;">Warning: AI-generated content may be inaccurate, biased, or unsuitable for specific contexts. It may occasionally produce responses that are irrelevant, inappropriate, or unrelated to the input, and could include content on sensitive topics without context. Always verify the information and use discretion before relying on or sharing AI outputs, and continue at your own risk.</p>
+</body>
+</html>
