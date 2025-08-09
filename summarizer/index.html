@@ -9,7 +9,8 @@
 
         document.getElementById('summarizeform').addEventListener('submit', async function (e) {
             e.preventDefault();
-            console.log("Working");
+            document.getElementById("explanationtext").style.display = 'none';
+            document.getElementById("wait").textContent = "Please wait while the summary is generated...";
             document.getElementById("wait").style.display = "inline-block";
 
             const file = document.getElementById('formFile').files[0];
@@ -45,72 +46,78 @@
             });
 
             const resultText = await response.text();
-            const resultObj = JSON.parse(resultText);
+            if (resultText.replace(/\s/g, "") != "4003") {
+                const resultObj = JSON.parse(resultText);
 
-            document.getElementById("wait").style.display = "none";
-            document.getElementById("column1").style.display = "block";
-            document.getElementById("column2").style.display = "block";
-            document.getElementById("column3").style.display = "block";
+                document.getElementById("wait").style.display = "none";
+                document.getElementById("column1").style.display = "block";
+                document.getElementById("column2").style.display = "block";
+                document.getElementById("column3").style.display = "block";
 
-            async function typeSentence(sentence, selector, delay = 10) {
-                const el = document.querySelector(selector);
-                const letters = sentence.split("");
-                let i = 0;
-                while (i < letters.length) {
-                    await waitForMs(delay);
-                    el.innerHTML += letters[i];
-                    i++;
-                }
-            }
-
-            async function typeHTMLSentence(sentence, selector, delay = 10) {
-                const el = document.querySelector(selector);
-                const lines = sentence.split('<br>');
-                for (const line of lines) {
-                    for (let i = 0; i < line.length; i++) {
-                        el.innerHTML += line[i];
+                async function typeSentence(sentence, selector, delay = 10) {
+                    const el = document.querySelector(selector);
+                    const letters = sentence.split("");
+                    let i = 0;
+                    while (i < letters.length) {
                         await waitForMs(delay);
+                        el.innerHTML += letters[i];
+                        i++;
                     }
-                    el.innerHTML += "<br><br>";
                 }
-            }
 
-            async function deleteSentence(selector) {
-                const el = document.querySelector(selector);
-                const letters = el.textContent.split("");
-                while (letters.length > 0) {
-                    await waitForMs(100);
-                    letters.pop();
-                    el.textContent = letters.join("");
+                async function typeHTMLSentence(sentence, selector, delay = 10) {
+                    const el = document.querySelector(selector);
+                    const lines = sentence.split('<br>');
+                    for (const line of lines) {
+                        for (let i = 0; i < line.length; i++) {
+                            el.innerHTML += line[i];
+                            await waitForMs(delay);
+                        }
+                        el.innerHTML += "<br><br>";
+                    }
                 }
-            }
 
-            function waitForMs(ms) {
-                return new Promise(resolve => setTimeout(resolve, ms));
-            }
+                async function deleteSentence(selector) {
+                    const el = document.querySelector(selector);
+                    const letters = el.textContent.split("");
+                    while (letters.length > 0) {
+                        await waitForMs(100);
+                        letters.pop();
+                        el.textContent = letters.join("");
+                    }
+                }
 
-            await Promise.all([
-                typeHTMLSentence(resultObj.main, "#summary"),
-                typeHTMLSentence(resultObj.claims, "#claims"),
-                typeHTMLSentence(resultObj.proof, "#proofs")
-            ]);
+                function waitForMs(ms) {
+                    return new Promise(resolve => setTimeout(resolve, ms));
+                }
+                
+                document.getElementById("summarizeform").style.display = "none";
+                await Promise.all([
+                    typeHTMLSentence(resultObj.main, "#summary"),
+                    typeHTMLSentence(resultObj.claims, "#claims"),
+                    typeHTMLSentence(resultObj.proof, "#proofs")
+                ]);
+                
+                let i = 0;
+                const speed = 2;
+
+                function typeWriter(txt) {
+                    if (!txt || typeof txt !== 'string') {
+                        console.error("typeWriter: invalid input", txt);
+                        return;
+                    }
+
+                    if (i < txt.length) {
+                        document.getElementById("speechInput").textContent += txt.charAt(i);
+                        i++;
+                        setTimeout(() => typeWriter(txt), speed);
+                    }
+                }
+            } 
             
-            let i = 0;
-            const speed = 2;
-
-            function typeWriter(txt) {
-                if (!txt || typeof txt !== 'string') {
-                    console.error("typeWriter: invalid input", txt);
-                    return;
-                }
-
-                if (i < txt.length) {
-                    document.getElementById("speechInput").textContent += txt.charAt(i);
-                    i++;
-                    setTimeout(() => typeWriter(txt), speed);
-                }
+            if (resultText.replace(/\s/g, "") == "4003") {
+                document.getElementById("wait").textContent = "reCAPTCHA not submitted. Go away, bot!";
             }
-
         });
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
@@ -155,17 +162,24 @@
     </nav>
     <br>
     <div>
+        <div style="padding: 15px; margin-left: 20px; margin-right: 30px;">
+            <p style="color: black; font-size: 16px; font-family: 'Georgia'; text-align: justify; z-index:2;">PaperCrux - a fast, no-nonsense tool to read a research paper, your way! Upload any research paper as a PDF and receive a clear, structured summary that is readable and concise. Fast-track your research, your way, whether you're skimming through a paper or studying thoroughly, today, with PaperCrux!</p>
+        </div>
         <form id="summarizeform">
-            <div class="mb-3" style="width: 40%; margin-left: 30px;">
-                <label for="formFile" class="form-label" style="font-size: 1.2rem;">Upload a research paper here: (<a href="sample.pdf" style="text-decoration: none;">Sample PDF 1</a> and <a href="sample_2.pdf" style="text-decoration: none;">Sample PDF 2</a>)</label>
-                <input class="form-control" type="file" id="formFile" accept="application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <div class="mb-3" style="width: 50%; margin-left: 30px;">
+                <label for="formFile" class="form-label" style="font-size: 1.2rem;">Upload a research paper here: (You can use <a href="sample.pdf" style="text-decoration: none;">Sample PDF 1</a> and <a href="sample_2.pdf" style="text-decoration: none;">Sample PDF 2</a> to test)</label>
+                <input class="form-control" type="file" id="formFile" accept="application/pdf">
+                <br>
+                <div id="explanationtext">
+                    <h5 style="font-size: 1rem; font-family: 'Georgia';">Please upload a file of a maximum of 3500 words.</h5>
+                </div>
                 <br>
                 <label for="formFile" class="form-label" style="font-size: 1.2rem;">Enter a word limit for the summary here: </label>
                 <input type="number" class="form-control" id="quantity" name="quantity" min="100" max="500">
                 <br>
                 <div class="g-recaptcha" data-sitekey="ADD_RECAPTCHA_SITE_KEY_HERE"></div>
                 <br>
-                <input type="submit" id="submitform" class="btn btn-dark button-try-it" value="Summarise!"></button>
+                <input type="submit" id="submitform" class="btn btn-dark button-try-it" value="Summarise!"></input>
             </div>
         </form>
         <center>
@@ -173,23 +187,40 @@
         </center>
         <div class="row1">
             <div class="column1" id="column1">
-                <h4 class="subheading1" id="summary1">A summary of the paper</h5>
+                <h4 class="title subheading1 continue-title feature-text" style="font-size: 1.5rem !important; text-align: center;" id="summary1">A summary of the paper</h4>
+                <span class="aurora-layers">
+                    <span class="aurora-navbar aurora-1"></span>
+                    <span class="aurora-navbar aurora-2"></span>
+                    <span class="aurora-navbar aurora-3"></span>
+                    <span class="aurora-navbar aurora-4"></span>
+                </span>
                 <br>
                 <p id="summary"></p>
             </div>
             <div class="column1" id="column2">
-                <h4 class="subheading1" id="claims1">Key claims made in the paper</h5>
+                 <h4 class="title subheading1 continue-title feature-text" style="font-size: 1.5rem !important; text-align: center;" id="claims1">Key claims made in the paper</h4>
+                 <span class="aurora-layers">
+                    <span class="aurora-navbar aurora-1"></span>
+                    <span class="aurora-navbar aurora-2"></span>
+                    <span class="aurora-navbar aurora-3"></span>
+                    <span class="aurora-navbar aurora-4"></span>
+                </span>
                 <br>
                 <p id="claims"></p>
             </div>
             <div class="column1" id="column3">
-                <h4 class="subheading1" id="proofs1">Proofs</h5>
+                 <h4 class="title subheading1 continue-title feature-text" style="font-size: 1.5rem !important; text-align: center;" id="proofs1">Proofs</h4>
+                 <span class="aurora-layers">
+                    <span class="aurora-navbar aurora-1"></span>
+                    <span class="aurora-navbar aurora-2"></span>
+                    <span class="aurora-navbar aurora-3"></span>
+                    <span class="aurora-navbar aurora-4"></span>
+                </span>
                 <br>
                 <p id="proofs"></p>
             </div>
         </div>
     </div>
-    <h5 style="font-size: 1.2rem; font-family: 'Georgia'; margin-left: 30px;">Please upload a file of a maximum of 3500 words.</h5>
     <p style="color: black; font-size: 10px; font-family: 'Georgia'; margin-left: 15px; margin-right: 15px; text-align: center; justify-content: center;">Warning: AI-generated content may be inaccurate, biased, or unsuitable for specific contexts. It may occasionally produce responses that are irrelevant, inappropriate, or unrelated to the input, and could include content on sensitive topics without context. Always verify the information and use discretion before relying on or sharing AI outputs, and continue at your own risk.</p>
 </body>
 </html>
