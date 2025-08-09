@@ -21,7 +21,7 @@ function check_recaptcha($recaptcha_response) {
         return true;
     } else {
         error_log("reCAPTCHA verification failed.\n");
-        echo "reCAPTCHA failed. Go away, bot!";
+        echo "4003";
         die();
     }
 }
